@@ -1,4 +1,10 @@
-fastapi==0.70.0
+fastapi==0.68.0
 uvicorn==0.15.0
-python-multipart==0.0.5  # Required for handling file uploads
-Pillow==8.4.0  # A powerful library for image processing
+pydantic==1.10.0
+typing-extensions==3.10.0.2
+httpx==0.19.0
+python-multipart==0.0.5
+sqlalchemy==1.4.38
+alembic==1.7.4
+sqlalchemy_utils==0.37.10
+databases==0.4.3
