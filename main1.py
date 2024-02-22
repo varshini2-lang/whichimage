@@ -1,87 +1,36 @@
-from fastapi import FastAPI, UploadFile, Depends, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, validator
-import os
+import httpx
 import base64
-from typing import List
 
-app1 = FastAPI()
+app = FastAPI()
 
-# Set up CORS
-app1.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Update with your React app's URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Replace 'YOUR_MAS_SERVICE_URL' with the actual URL of your MAS service
+MAS_SERVICE_URL = "http://noobed-max/test_model"
 
-class Item(BaseModel):
-    category: str
-    images: List[UploadFile]
-
-    @validator("images")
-    def validate_images(cls, value):
-        allowed_formats = ['jpeg', 'png', 'gif']
-        allowed_size_mb = 5  # Adjust as needed
-
-        for image in value:
-            if image.content_type.lower() not in ['image/jpeg', 'image/png', 'image/gif']:
-                raise ValueError(f"Unsupported image format. Supported formats: JPEG, PNG, GIF")
-
-            if image.file:
-                file_size_mb = len(image.file.read()) / (1024 * 1024)
-                image.file.seek(0)  # Reset file pointer
-
-                if file_size_mb > allowed_size_mb:
-                    raise ValueError(f"Image size exceeds the allowed limit of {allowed_size_mb} MB")
-
-        return value
-
-def save_uploaded_images(category: str, images: List[UploadFile]):
-    upload_directory = f"uploaded_images/{category}"
-    os.makedirs(upload_directory, exist_ok=True)
-
-    saved_image_paths = []
-
-    for image in images:
-        file_path = os.path.join(upload_directory, image.filename)
-        with open(file_path, "wb") as file:
-            file.write(image.file.read())
-            saved_image_paths.append(file_path)
-
-    return saved_image_paths
-
-def get_images_by_category(category: str):
-    image_directory = f"uploaded_images/{category}"
-
-    images = []
-
-    for file_name in os.listdir(image_directory):
-        file_path = os.path.join(image_directory, file_name)
-        with open(file_path, "rb") as file:
-            image_data = base64.b64encode(file.read()).decode("utf-8")
-            images.append({"name": file_name, "data": image_data})
-
-    return images
-
-@app1.post("/uploadfiles/")
-async def create_upload_files(item: Item = Depends()):
-    category = item.category
-
+@app.get("/test_model")
+async def test_model(base64_data: str, model_name: str):
     try:
-        saved_image_paths = save_uploaded_images(category, item.images)
-        confirmation_messages = [f"Image '{os.path.basename(path)}' uploaded to '{category}' category." for path in saved_image_paths]
+        # Your base64 decoding logic here if needed
+        # decoded_data = base64.b64decode(base64_data)
 
-        return JSONResponse(content={"confirmation_messages": confirmation_messages}, status_code=200)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Making a request to the MAS service
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                MAS_SERVICE_URL,
+                params={"base64_data": base64_data, "model_name": model_name},
+            )
 
-@app1.get("/get_images/{category}")
-async def get_images(category: str):
-    try:
-        images = get_images_by_category(category)
-        return {"category": category, "images": images}
+        # Check if the request was successful (status code 200)
+        response.raise_for_status()
+
+        # Assuming MAS service returns JSON response, you can return it
+        return JSONResponse(content=response.json(), status_code=200)
+
+    except httpx.HTTPError as e:
+        # Handle HTTP errors from MAS service
+        return JSONResponse(content={"error": f"MAS service error: {str(e)}"}, status_code=e.response.status_code)
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Handle other exceptions
+        return JSONResponse(content={"error": f"Internal server error: {str(e)}"}, status_code=500)

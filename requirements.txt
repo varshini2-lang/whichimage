@@ -1,4 +1,0 @@
-fastapi==0.70.0
-uvicorn==0.15.0
-python-multipart==0.0.5  # Required for handling file uploads
-Pillow==8.4.0  # A powerful library for image processing
